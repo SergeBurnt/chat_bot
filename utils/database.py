@@ -76,7 +76,7 @@ class CreateDatabase:
         # Итерация по каждому элементу в наборе данных
         for i in tqdm(range(len(self.dataset))):
             # Разделение текста на части (chunks)
-            self.text_chunks = self.text_splitter.split_text(self.dataset[i]['decription'])
+            self.text_chunks = self.text_splitter.split_text(self.dataset[i]['description'])
 
             # Генерация векторов для каждого текстового фрагмента
             vectors = self.embedding_model.encode(
