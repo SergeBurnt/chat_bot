@@ -76,7 +76,7 @@ class CreateDatabase:
         # Итерация по каждому элементу в наборе данных
         for i in tqdm(range(len(self.dataset))):
             # Разделение текста на части (chunks)
-            self.text_chunks = self.text_splitter.split_text(self.dataset[i]['content'])
+            self.text_chunks = self.text_splitter.split_text(self.dataset[i]['decription'])
 
             # Генерация векторов для каждого текстового фрагмента
             vectors = self.embedding_model.encode(
@@ -94,8 +94,8 @@ class CreateDatabase:
                         vector=vectors[j],  # Вектор, соответствующий текстовому фрагменту
                         payload={
                             'text': self.text_chunks[j],  # Текстовый фрагмент
-                            'movie_name': self.dataset[i]['movie_name'][:-7],  # Название фильма (без последних 7 символов)
-                            'year': int(self.dataset[i]['movie_name'][-5:-1]),  # Год выпуска фильма (извлекается из названия)
+                            'document_name': self.dataset[i]['document'],  # Название фильма (без последних 7 символов)
+                            'point': self.dataset[i]['point'],  # Год выпуска фильма (извлекается из названия)
                         }
                     ) for j in range(len(self.text_chunks))  # Итерация по каждому текстовому фрагменту
                 ]
