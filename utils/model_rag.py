@@ -22,7 +22,8 @@ class ModelRag:
                  temperature: float = 0.9,
                  top_p: float = 0.7,
                  limit_semantic_search: int = 50,
-                 count_rephrase: int = 3
+                 count_rephrase: int = 3,
+                 max_history_size: int = 6,
                 ):
         """
         Инициализация модели с заданными параметрами.
@@ -40,11 +41,16 @@ class ModelRag:
         self.limit_semantic_search = limit_semantic_search  # Лимит на количество результатов в поиске
         self.collection_name = collection_name  # Имя коллекции в базе данных
         self.count_rephrase = count_rephrase  # Количество перефразировок запроса
+        self.dialog_history = []  # Список для хранения истории диалога
+        self.max_history_size = max_history_size  # Максимальное количество сообщений в истории
 
     def _llm_answer(self, query, context):
         """
         Генерация ответа на основе запроса и контекста.
         """
+        # Формирование промпта для модели с учётом истории диалога
+        # history_text = "\n".join([f"{entry[0]}: {entry[1]}" for entry in self.dialog_history])
+        history_text = ''
         # Формирование промпта для модели
         prompt = f"""
         Ты русскоязычный эксперт в области атомной энергетики.
@@ -53,10 +59,13 @@ class ModelRag:
         Убедись, что ответ подробный, конкретный и непосредственно касается вопроса.
         Не добавляй информацию, которая не подтверждается предоставленными отзывами.
 
+        История диалога:
+        {history_text}
+        
         Вопрос:
         {query}
 
-        Отзывы:
+        Норма:
         {context}
         """
 
@@ -106,7 +115,9 @@ class ModelRag:
         Основной метод для получения ответа на запрос.
         """
         # Получение перефразированных запросов
-        queries = self._rephrase_query(query)
+        # queries = self._rephrase_query(query)
+        queries = query
+        # print(f'Перефразированные вопросы: {queries}')
 
         all_chunks = []  # Список для хранения всех найденных фрагментов
         for rephrased_query in queries:
@@ -128,11 +139,28 @@ class ModelRag:
         # Оценка релевантности текстов с использованием cross-encoder
         scores = self.cross_encoder.score([(query, text) for text in texts])
 
-        # Получение индексов 10 самых релевантных текстов
-        idxs = np.argsort(list(scores))[-10:]
+        # Получение индексов самых релевантных текстов
+        idxs = np.argsort(list(scores))[-7:]
 
         # Формирование контекста из самых релевантных текстов
         context = ' ; '.join([texts[i] for i in idxs])
+        
+        # Получение ответа модели
+        answer = self._llm_answer(query, context)
+
+        # Обновление истории диалога
+        self.dialog_history.append(("User", query))
+        self.dialog_history.append(("Assistant", answer))
+
+        # Ограничение размера истории
+        if len(self.dialog_history) > self.max_history_size:
+            self.dialog_history = self.dialog_history[-self.max_history_size:]
 
         # Возврат сгенерированного ответа и контекста
-        return self._llm_answer(query, context), context
+        return answer, context, self.dialog_history
+
+    def clear_history(self):
+        """
+        Очистка истории диалога.
+        """
+        self.dialog_history = []
